@@ -1,0 +1,135 @@
+---
+title: "Analysis of NYPD Shooting Incident Data (Historic)"
+author: "Jingheng C"
+date: "11/17/2021"
+output: pdf_document
+---
+A quick analysis of the NYPD Shooting Incident Data. We want to see whether 
+there is a temporal trend with the incident count.
+
+Data Publisher: data.cityofnewyork.us
+Data Maintainer: NYC OpenData
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing data and libraries
+
+```{r imports}
+library(tidyverse)
+library(lubridate)
+
+NYPD_Shooting_data = read.csv("NYPD_Shooting_Incident_Data__Historic_.csv")
+
+summary(NYPD_Shooting_data)
+```
+## Data Cleaning & Transformation
+```{r Cleaning & Transformation}
+
+# Extract year&month from OCCUR_DATE because we need to group the incident 
+# by month and year for this analysis
+NYPD_Shooting_data = NYPD_Shooting_data %>%
+  mutate(OCCUR_DATE_Month_Year = format(mdy(OCCUR_DATE),"%Y-%m"))
+
+# Aggregation to get the monthly incident count 
+
+Monthly_incident_count = NYPD_Shooting_data %>% group_by(OCCUR_DATE_Month_Year) %>% 
+  summarise(incident_count = n())
+
+Monthly_incident_count$date = ym(Monthly_incident_count$OCCUR_DATE_Month_Year)
+
+summary(Monthly_incident_count)
+
+```
+
+
+
+
+## Data Visualization
+
+We can easily spot a huge spike in incident count around mid-2020, this spike is
+likely caused by the COVID-19 recession. There seems to be a downward trend, 
+further quantitative analysis is needed to conclude whether there is a trend.   
+
+
+```{r Data Exploration}
+
+timeseries_plot = ggplot(Monthly_incident_count,aes(date,incident_count))+
+  geom_line()+
+  xlab('Incident Count')
+timeseries_plot
+
+```
+
+
+## Regression analysis of the trend
+We will use the index of row to acts as a variable of the linear trend
+```{r}
+# Adding index column 
+Monthly_incident_count$Trend = seq.int(nrow(Monthly_incident_count))
+
+# Linear Regression
+model = lm(incident_count ~ Trend,data = Monthly_incident_count)
+summary(model)
+
+```
+
+p = 2.3e-15 < 0.05
+We conclude that there is significant evidence to suggest the presence of 
+a linear trend in the incident count.
+
+
+# Adding more independent variable
+In the previous regression analysis, R-squared is only 0.29.
+Around 70% of the variance is unexplained by our model.
+Seasonality seems to be present in the data,
+
+## Data Visualization
+Decompose the data to get a better visual representation of the seasonality.
+
+
+```{r summary}
+# Convert the data into time series
+ts = ts(Monthly_incident_count$incident_count,frequency=12)
+
+# Time series decomposition to visualize the seasonality 
+
+ts = decompose(ts)
+
+# Visualize the decomposed time series
+
+plot(ts)
+
+```
+
+
+
+
+
+## Regression Analysis
+
+
+```{r}
+# Adding variable for Month
+Monthly_incident_count$Month = as.factor(month(Monthly_incident_count$date))
+
+
+model_se = lm(incident_count ~ Trend + Month ,data = Monthly_incident_count)
+
+summary(model_se)
+
+```
+The p value of many seasonal dummy variables is less than 0.05.
+We can conclude that seasonality is present in the data. 
+By adding months to our model, Adjusted R-squared increased to 0.5858. 
+A majority of the variance is now explained by our model
+
+
+# Conclusion & Biases
+The monthly shooting incidents count has a decreasing trend over time. Seasonal patterns can also be observed, the number of shooting incidents is significantly higher from May to October compared to other months. 
+
+One potential source of biases is with the data collection process, the data was collected and published by the government of New York City. There could be a political incentive for the government to publish data that suggest the number of shooting incidents is decreasing over the years. Ideally a third party NGO should verify the data is authenticate 
+```{r}
+sessionInfo()
+```
