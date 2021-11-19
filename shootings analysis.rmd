@@ -57,7 +57,7 @@ further quantitative analysis is needed to conclude whether there is a trend.
 
 timeseries_plot = ggplot(Monthly_incident_count,aes(date,incident_count))+
   geom_line()+
-  xlab('Incident Count')
+  xlab('Year')
 timeseries_plot
 
 ```
