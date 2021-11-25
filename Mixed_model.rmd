@@ -1,0 +1,81 @@
+---
+title: "Covid_Mixed_effect_analysis"
+author: "Jingheng C"
+date: "11/24/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Data source
+https://github.com/CSSEGISandData/COVID-19
+
+## Introduction
+
+In this analysis, we want to examine and quantify how the COVID19 pandemic impacted different parts of the globe in different ways. 
+
+
+
+```{r cars}
+library(tidyverse)
+```
+
+## Exploratory data analysis with Visualization
+
+```{r}
+data = read.csv('WHO-COVID-19-global-data.csv')
+summary(data)
+#There is often a lag between COVID-19 cases and deaths, so we manually introduce a 7 day lag for better analysis
+data = data %>% group_by(Country) %>% mutate(Cumulative_deaths = lag(Cumulative_deaths,n=7, default = NA))
+#We want to learn about the COVID pandemic at its peak, so we only take the 30 days with the highest new cases count.
+data = data  %>% group_by(Country) %>% slice_max(order_by = Cumulative_deaths, n=30)
+
+
+#Initial visualization - for clarity, I only plot the five countries with the highest COVID deaths
+top5 = data %>% group_by(Country) %>% summarise(count = max(Cumulative_deaths)) %>% slice_max(order_by = count, n=5)
+
+data %>% filter(Country %in% top5$Country) %>% ggplot(aes(x = Cumulative_cases,y = Cumulative_deaths,group = Country)) +
+  geom_smooth(aes(color=Country),method = "lm")+
+  geom_point(aes(color=Country))
+
+```
+From the above visualization, we can see the relationship between case count & the death count is very different from country to country, so we must control for the country-specific effect for new cases.  
+
+## Mixed model with lme4
+Linear Mixed-Effects Models from lme4 can take country-specific effects into account, this will allow us to better understand the variability in the number of death across different countries
+```{r}
+#standardization before fitting
+data$Cumulative_cases=scale(data$Cumulative_cases)
+data$Cumulative_deaths=scale(data$Cumulative_deaths)
+library(lme4)
+library(sjstats)#needed for icc
+covid_mixed = lmer(Cumulative_deaths ~ Cumulative_cases + (Cumulative_cases| Country),data)
+summary(covid_mixed)
+icc(covid_mixed)
+```
+## Conclusion
+You might notice the previous provides no p-value, that is because the degree of
+freedom can be hard to calculate for mixed designs.
+The ICC(Intraclass-Correlation Coefficient) shows the majority of the variability in the number of death is due to the between-subject variations. This analysis suggests that the COVID impacted counties in different ways. In future modeling, we need to consider the country-specific effect.
+
+
+## Model Diagnostics
+To check whether the assumptions for lme model holds.
+```{r}
+coef(covid_mixed)$Country
+plot(covid_mixed)
+qqnorm(residuals(covid_mixed))
+```
+From the residual plot and the QQ plot, we can see that the residual is not normally distributed and has a nonconstant variance. The shape of our QQ plot also suggests our data is over-dispersed. Thus making the output of our lme model unreliable.
+
+
+## Known biases
+Due to over-dispersion, the estimated coefficients are likely to be heavily biased, but the conclusion should still hold since the source of the problem originated from the fact that the data from different countries are vastly different from one to another.
+```{r}
+sessionInfo()
+```
+
+ 
