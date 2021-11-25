@@ -17,6 +17,7 @@ https://github.com/CSSEGISandData/COVID-19
 
 In this analysis, we want to examine and quantify how the COVID19 pandemic impacted different parts of the globe in different ways. 
 
+Source code: https://github.com/IanC544/statistical_analysis_projects
 
 
 ```{r cars}
@@ -28,16 +29,24 @@ library(tidyverse)
 ```{r}
 data = read.csv('WHO-COVID-19-global-data.csv')
 summary(data)
-#There is often a lag between COVID-19 cases and deaths, so we manually introduce a 7 day lag for better analysis
-data = data %>% group_by(Country) %>% mutate(Cumulative_deaths = lag(Cumulative_deaths,n=7, default = NA))
-#We want to learn about the COVID pandemic at its peak, so we only take the 30 days with the highest new cases count.
-data = data  %>% group_by(Country) %>% slice_max(order_by = Cumulative_deaths, n=30)
+#There is often a lag between COVID-19 cases and deaths, so we manually 
+#introduce a 7 day lag for better analysis
+data = data %>% group_by(Country) %>%
+  mutate(Cumulative_deaths = lag(Cumulative_deaths,n=7, default = NA))
+#We want to learn about the COVID pandemic at its peak, so we only take the 
+#30 days with the highest new cases count.
+data = data  %>% group_by(Country) %>% 
+  slice_max(order_by = Cumulative_deaths, n=30)
 
 
-#Initial visualization - for clarity, I only plot the five countries with the highest COVID deaths
-top5 = data %>% group_by(Country) %>% summarise(count = max(Cumulative_deaths)) %>% slice_max(order_by = count, n=5)
+#Initial visualization - for clarity, I only plot the five countries with the 
+#highest COVID deaths
+top5 = data %>% group_by(Country) %>% 
+  summarise(count = max(Cumulative_deaths)) %>% 
+  slice_max(order_by = count, n=5)
 
-data %>% filter(Country %in% top5$Country) %>% ggplot(aes(x = Cumulative_cases,y = Cumulative_deaths,group = Country)) +
+data %>% filter(Country %in% top5$Country) %>% 
+  ggplot(aes(x = Cumulative_cases,y = Cumulative_deaths,group = Country)) +
   geom_smooth(aes(color=Country),method = "lm")+
   geom_point(aes(color=Country))
 
@@ -52,7 +61,8 @@ data$Cumulative_cases=scale(data$Cumulative_cases)
 data$Cumulative_deaths=scale(data$Cumulative_deaths)
 library(lme4)
 library(sjstats)#needed for icc
-covid_mixed = lmer(Cumulative_deaths ~ Cumulative_cases + (Cumulative_cases| Country),data)
+covid_mixed = lmer(Cumulative_deaths ~ Cumulative_cases +
+                     (Cumulative_cases| Country),data)
 summary(covid_mixed)
 icc(covid_mixed)
 ```
